@@ -5,6 +5,7 @@ const smokeDist = '.release-smoke-dist';
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const smokeEnv = {
   ...process.env,
+  VITE_AI_PROVIDER: 'azure-openai',
   VITE_AZURE_OPENAI_ENDPOINT: 'https://smoke.invalid/',
   VITE_AZURE_OPENAI_DEPLOYMENT_CLAUDE_OPUS_55: 'smoke-claude-opus-5-5',
   VITE_AZURE_OPENAI_DEPLOYMENT_GPT56SOL: 'smoke-gpt-5-6-sol',

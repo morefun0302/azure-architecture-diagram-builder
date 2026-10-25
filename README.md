@@ -587,7 +587,7 @@ Set `AZURE_ENV_NAME`, `AZURE_LOCATION`, and `AZURE_SPEECH_REGION` as **variables
 
 - **Node.js 20+** (LTS recommended)
 - **npm** or **yarn**
-- **Azure OpenAI** resource with GPT model deployment
+- **Ollama** running locally with at least one model installed (local default)
 
 ### Installation
 
@@ -607,7 +607,16 @@ npm install
 Create a `.env` file in the project root:
 
 ```bash
-# Azure OpenAI Configuration (Required)
+# Local AI provider (default)
+# Keep Ollama running at http://127.0.0.1:11434. With no VITE_OLLAMA_MODEL,
+# the app automatically uses the first model reported by `ollama list`.
+VITE_AI_PROVIDER=ollama
+# Optional: pin a specific installed Ollama model.
+# VITE_OLLAMA_MODEL=gemma4:e2b-mlx
+
+# Optional Azure OpenAI provider
+# Set VITE_AI_PROVIDER=azure-openai to use Azure OpenAI instead. If the provider
+# is not specified but an Azure endpoint is configured, the app uses Azure.
 #
 # SECURITY: Azure OpenAI calls are proxied server-side by the co-located token
 # server (server/token-server.js) via the /api/openai endpoint. The API key is
@@ -663,17 +672,16 @@ AZURE_SPEECH_RESOURCE_ID=/subscriptions/<subscription-id>/resourceGroups/<resour
 
 4. **Start the development server**
 ```bash
-# Frontend only — Vite on http://localhost:3000.
-# NOTE: /api/openai is NOT served, so AI generation/chat will fail with a
-# 500/503. Use this only for pure UI work that doesn't call the AI backend.
+# Frontend only — Vite on http://localhost:3000. AI requests need the local
+# token server proxy started by `npm run dev:full`.
 npm run dev
 
 # Recommended for local testing: starts the token server (:3001, serves
-# /api/openai) AND Vite (:3000) together, with pre-flight checks and cleanup.
-# Reads .env, bridges VITE_AZURE_OPENAI_* → server-side AZURE_OPENAI_* so the
-# /api/openai proxy works, checks `az login` (warns if not on the expected
-# subscription), confirms ports 3000/3001 are free, installs deps if missing,
-# then runs Vite in the foreground. Single Ctrl-C cleans up all children.
+# /api/openai and /api/ollama) AND Vite (:3000) together, with pre-flight checks
+# and cleanup. No Azure login or credentials are needed for local Ollama mode.
+# Azure-backed features still use the configured endpoint and Azure identity.
+# The script confirms ports 3000/3001 are free, installs deps if missing, then
+# runs Vite in the foreground. Single Ctrl-C cleans up all children.
 # Logs land in `.dev-logs/`. The AZURE_SPEECH_* vars are OPTIONAL — without
 # them the avatar "Present" button is disabled but everything else works.
 npm run dev:full                    # alias for ./scripts/dev-all.sh

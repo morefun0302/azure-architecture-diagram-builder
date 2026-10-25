@@ -12,6 +12,8 @@ import { FOLLOW_UP_MODEL_POLICY, getFollowUpOperation, type FollowUpSource } fro
 // endpoint and credentials live server-side in the token server; the browser
 // never sees the API key — all calls go through the /api/openai proxy.
 const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
+const aiProvider = import.meta.env.VITE_AI_PROVIDER || (endpoint ? 'azure-openai' : 'ollama');
+const ollamaModel = import.meta.env.VITE_OLLAMA_MODEL;
 
 // Token usage metrics returned from Azure OpenAI API
 export interface AIMetrics {
@@ -39,6 +41,33 @@ export async function callAzureOpenAI(messages: any[], modelOverride?: ModelOver
   const rawStore = getModelSettings();
   const settings = modelOverride || storeSettings;
   const modelConfig = MODEL_CONFIG[settings.model];
+
+  if (aiProvider === 'ollama') {
+    const startedAt = performance.now();
+    const response = await fetch('/api/ollama', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...(ollamaModel ? { model: ollamaModel } : {}), messages, format: jsonOutput ? 'json' : undefined }),
+    });
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(response.status === 502 || response.status === 503
+        ? 'Ollama is unavailable. Start Ollama and pull the configured model.'
+        : `Ollama request failed (${response.status}): ${detail}`);
+    }
+    const result = await response.json();
+    const content = result.message?.content || '';
+    if (!content.trim()) throw new Error('Ollama returned an empty response.');
+    const metrics: AIMetrics = {
+      promptTokens: result.prompt_eval_count || 0,
+      completionTokens: result.eval_count || 0,
+      totalTokens: (result.prompt_eval_count || 0) + (result.eval_count || 0),
+      elapsedTimeMs: Math.round(performance.now() - startedAt),
+      model: result.model || ollamaModel || 'ollama',
+      reasoningEffort: 'none',
+    };
+    trackAIModelUsage({ model: metrics.model!, operation, promptTokens: metrics.promptTokens, completionTokens: metrics.completionTokens, totalTokens: metrics.totalTokens, elapsedTimeMs: metrics.elapsedTimeMs });
+    return { content, metrics };
+  }
   
   console.log(`📋 Model: using ${settings.model} | dropdown=${rawStore.model} | featureOverride=${rawStore.featureOverrides?.architectureGeneration?.model || 'none'} | source=${modelOverride ? 'explicit' : 'store'}`);
 
@@ -351,7 +380,7 @@ Verify findings independently.*`;
 }
 
 export function isAzureOpenAIConfigured(): boolean {
-  return !!endpoint && getAvailableModels().length > 0;
+  return aiProvider === 'ollama' || (!!endpoint && getAvailableModels().length > 0);
 }
 
 /**

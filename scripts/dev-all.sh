@@ -91,13 +91,14 @@ command -v node >/dev/null || die "node not found"
 command -v npm  >/dev/null || die "npm not found"
 ok "node $(node --version) / npm $(npm --version)"
 
-# -- Azure CLI login check ------------------------------------------------------
+# -- Azure CLI login check (optional for Azure-backed features) ----------------
 if [ "$SKIP_AZ_CHECK" -eq 0 ]; then
   if ! command -v az >/dev/null; then
     warn "az CLI not found — skipping login check (use --skip-az-check to silence)"
   else
     if ! az account show >/dev/null 2>&1; then
-      die "Not signed in to Azure. Run: az login --tenant <yourTenantId>"
+      warn "Not signed in to Azure — local Ollama mode works; Azure and Azure resource features need az login"
+      SKIP_AZ_CHECK=1
     fi
     SUB_ID=$(az account show --query id -o tsv)
     USER=$(az account show --query user.name -o tsv)

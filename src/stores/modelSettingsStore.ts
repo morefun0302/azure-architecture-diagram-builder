@@ -412,6 +412,11 @@ export function useModelSettings(): [ModelSettings, (updates: Partial<ModelSetti
  * Check if a model is available (has deployment configured)
  */
 export function isModelAvailable(model: ModelType): boolean {
+  // Ollama uses one locally configured model for every feature; Azure deployment
+  // names are irrelevant while the local provider is selected.
+  const endpoint = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT;
+  const provider = import.meta.env.VITE_AI_PROVIDER || (endpoint ? 'azure-openai' : 'ollama');
+  if (provider === 'ollama') return true;
   try {
     getDeploymentName(model);
     return true;

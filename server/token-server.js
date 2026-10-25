@@ -24,6 +24,7 @@ app.set('trust proxy', 1);
 // it needs a larger body limit. This route-scoped parser runs before the small
 // global parser below; the global parser then skips bodies already parsed here.
 app.use('/api/openai', express.json({ limit: '12mb' }));
+app.use('/api/ollama', express.json({ limit: '12mb' }));
 app.use('/api/bicep', express.json({ limit: '1mb' }));
 app.use(express.json({ limit: '16kb' }));
 const credential = new DefaultAzureCredential();
@@ -91,7 +92,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.get('/api/ready', (_req, res) => {
-  const ready = Boolean(process.env.AZURE_OPENAI_ENDPOINT);
+  const ready = true;
   res
     .status(ready ? 200 : 503)
     .set('Cache-Control', 'no-store')
@@ -332,6 +333,36 @@ app.post('/api/openai', async (req, res) => {
       span.end();
     }
   });
+});
+
+// Local-only Ollama bridge. The upstream is fixed to loopback so callers cannot
+// use this development endpoint as an arbitrary HTTP proxy.
+app.post('/api/ollama', async (req, res) => {
+  const { model, messages, format } = req.body || {};
+  if (model != null && (typeof model !== 'string' || !/^[A-Za-z0-9._:-]{1,100}$/.test(model))) {
+    return res.status(400).json({ error: 'invalid Ollama model name' });
+  }
+  if (!Array.isArray(messages) || messages.length > 1000) {
+    return res.status(400).json({ error: 'messages must be an array' });
+  }
+  try {
+    let selectedModel = model;
+    if (!selectedModel) {
+      const tagsResponse = await fetch('http://127.0.0.1:11434/api/tags');
+      if (!tagsResponse.ok) return res.status(503).json({ error: 'Ollama is unavailable on 127.0.0.1:11434' });
+      const tags = await tagsResponse.json();
+      selectedModel = tags.models?.[0]?.name;
+      if (!selectedModel) return res.status(503).json({ error: 'No Ollama models are installed. Pull a model or set VITE_OLLAMA_MODEL.' });
+    }
+    const upstream = await fetch('http://127.0.0.1:11434/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: selectedModel, messages, stream: false, ...(format === 'json' ? { format: 'json' } : {}) }),
+    });
+    const text = await upstream.text();
+    res.status(upstream.status).type('application/json').send(text);
+  } catch (error) {
+    res.status(503).json({ error: 'Ollama is unavailable on 127.0.0.1:11434' });
+  }
 });
 
 // ── Microsoft Learn docs grounding ─────────────────────────────────────────

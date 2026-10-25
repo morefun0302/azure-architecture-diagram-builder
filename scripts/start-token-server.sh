@@ -18,8 +18,7 @@ if [ -f "$ROOT/.env" ]; then
   set +a
 fi
 
-: "${AZURE_SPEECH_REGION:?AZURE_SPEECH_REGION must be set (in .env or environment)}"
-: "${AZURE_SPEECH_RESOURCE_ID:?AZURE_SPEECH_RESOURCE_ID must be set (in .env or environment)}"
+# Speech credentials are only needed for the optional avatar presentation feature.
 
 # Bridge the client (VITE_) values to the server-side names used by the
 # /api/openai proxy, so AI generation/chat work in local dev. Prefer an
@@ -29,6 +28,6 @@ fi
 export AZURE_OPENAI_ENDPOINT="${AZURE_OPENAI_ENDPOINT:-${VITE_AZURE_OPENAI_ENDPOINT:-}}"
 export AZURE_OPENAI_API_KEY="${AZURE_OPENAI_API_KEY:-${VITE_AZURE_OPENAI_API_KEY:-}}"
 
-echo "[token-server] Starting on 127.0.0.1:3001 (region=$AZURE_SPEECH_REGION)"
+echo "[token-server] Starting on 127.0.0.1:3001 (local Ollama proxy enabled)"
 echo "[token-server] OpenAI proxy endpoint: ${AZURE_OPENAI_ENDPOINT:-<unset>} (key auth: $([ -n "${AZURE_OPENAI_API_KEY:-}" ] && echo yes || echo 'no — using managed identity')))"
 exec node "$ROOT/server/token-server.js"
