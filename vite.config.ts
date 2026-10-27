@@ -63,6 +63,19 @@ export default defineConfig(({ mode }) => {
         'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
       },
       proxy: {
+        // Ollama is a local service and should work with `npm run dev` without
+        // starting the Azure token server. Discover installed models separately
+        // so the client can select the first one when none is pinned.
+        '/api/ollama/models': {
+          target: 'http://127.0.0.1:11434',
+          changeOrigin: true,
+          rewrite: () => '/api/tags',
+        },
+        '/api/ollama': {
+          target: 'http://127.0.0.1:11434',
+          changeOrigin: true,
+          rewrite: () => '/api/chat',
+        },
         // Forward /api/ to the local speech token server (mirrors nginx in production)
         '/api/voice-live': {
           target: 'ws://127.0.0.1:3001',

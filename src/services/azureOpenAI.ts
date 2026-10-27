@@ -44,14 +44,26 @@ export async function callAzureOpenAI(messages: any[], modelOverride?: ModelOver
 
   if (aiProvider === 'ollama') {
     const startedAt = performance.now();
+    let selectedOllamaModel = ollamaModel;
+    if (!selectedOllamaModel) {
+      const modelsResponse = await fetch('/api/ollama/models');
+      if (!modelsResponse.ok) {
+        throw new Error('Could not reach Ollama at 127.0.0.1:11434. Make sure Ollama is running.');
+      }
+      const modelsResult = await modelsResponse.json();
+      selectedOllamaModel = modelsResult.models?.[0]?.name;
+      if (!selectedOllamaModel) {
+        throw new Error('Ollama is running, but no models are installed. Pull a model with `ollama pull <model>`.');
+      }
+    }
     const response = await fetch('/api/ollama', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...(ollamaModel ? { model: ollamaModel } : {}), messages, format: jsonOutput ? 'json' : undefined }),
+      body: JSON.stringify({ model: selectedOllamaModel, messages, format: jsonOutput ? 'json' : undefined }),
     });
     if (!response.ok) {
       const detail = await response.text();
-      throw new Error(response.status === 502 || response.status === 503
-        ? 'Ollama is unavailable. Start Ollama and pull the configured model.'
+      throw new Error(response.status === 404
+        ? `Ollama model "${selectedOllamaModel}" is not installed. Pull it with \`ollama pull ${selectedOllamaModel}\` or unset VITE_OLLAMA_MODEL to use a loaded model.`
         : `Ollama request failed (${response.status}): ${detail}`);
     }
     const result = await response.json();
@@ -62,7 +74,7 @@ export async function callAzureOpenAI(messages: any[], modelOverride?: ModelOver
       completionTokens: result.eval_count || 0,
       totalTokens: (result.prompt_eval_count || 0) + (result.eval_count || 0),
       elapsedTimeMs: Math.round(performance.now() - startedAt),
-      model: result.model || ollamaModel || 'ollama',
+      model: result.model || selectedOllamaModel,
       reasoningEffort: 'none',
     };
     trackAIModelUsage({ model: metrics.model!, operation, promptTokens: metrics.promptTokens, completionTokens: metrics.completionTokens, totalTokens: metrics.totalTokens, elapsedTimeMs: metrics.elapsedTimeMs });

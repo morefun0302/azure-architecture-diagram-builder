@@ -337,6 +337,15 @@ app.post('/api/openai', async (req, res) => {
 
 // Local-only Ollama bridge. The upstream is fixed to loopback so callers cannot
 // use this development endpoint as an arbitrary HTTP proxy.
+app.get('/api/ollama/models', async (_req, res) => {
+  try {
+    const upstream = await fetch('http://127.0.0.1:11434/api/tags');
+    res.status(upstream.status).type('application/json').send(await upstream.text());
+  } catch {
+    res.status(503).json({ error: 'Ollama is unavailable on 127.0.0.1:11434' });
+  }
+});
+
 app.post('/api/ollama', async (req, res) => {
   const { model, messages, format } = req.body || {};
   if (model != null && (typeof model !== 'string' || !/^[A-Za-z0-9._:-]{1,100}$/.test(model))) {

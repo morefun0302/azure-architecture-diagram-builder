@@ -672,8 +672,8 @@ AZURE_SPEECH_RESOURCE_ID=/subscriptions/<subscription-id>/resourceGroups/<resour
 
 4. **Start the development server**
 ```bash
-# Frontend only — Vite on http://localhost:3000. AI requests need the local
-# token server proxy started by `npm run dev:full`.
+# Frontend only — Vite on http://localhost:3000. Ollama works directly when it
+# is running locally; Azure OpenAI requests need the token server from `dev:full`.
 npm run dev
 
 # Recommended for local testing: starts the token server (:3001, serves
